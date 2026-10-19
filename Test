@@ -1,0 +1,277 @@
+package com.mycompany.main;
+
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertTrue;
+
+import java.io.ByteArrayOutputStream;
+import java.io.File;
+import java.io.IOException;
+import java.io.PrintStream;
+import java.nio.charset.StandardCharsets;
+import java.nio.file.Files;
+
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
+
+public class MainTest {
+
+    // Test data from the brief
+    static final String RECIPIENT_1 = "+27718693002";
+    static final String TEXT_1 = "Hi Mike, can you join us for dinner tonight?";
+    static final String RECIPIENT_2 = "08575975889";
+    static final String TEXT_2 = "Hi Keegan, did you receive the payment?";
+
+    File tempFile;
+
+    // Runs before every test so that each test starts fresh
+    @BeforeEach
+    public void setUp() throws IOException {
+        Main.resetMessages();
+        tempFile = File.createTempFile("quickchat", ".json");
+        tempFile.deleteOnExit();
+        Main.storageFile = tempFile.getAbsolutePath();
+
+        // Details of the registered user
+        Main.firstname = "Kyle";
+        Main.lastname = "Smith";
+        Main.registeredUsername = "kyl_1";
+        Main.registeredPassword = "Ch&&sec@ke99!";
+    }
+
+    // Gets the text that a method prints on the screen
+    // (the Part 1 check methods print their messages)
+    String printedBy(Runnable action) {
+        PrintStream original = System.out;
+        ByteArrayOutputStream out = new ByteArrayOutputStream();
+        System.setOut(new PrintStream(out));
+        try {
+            action.run();
+        } finally {
+            System.setOut(original);
+        }
+        return out.toString().trim();
+    }
+
+    // Sets up the current message (used by the Part 2 tests)
+    void setCurrent(String id, int number, String recipient, String text) {
+        Main.currentMessageID = id;
+        Main.currentNumber = number;
+        Main.currentRecipient = recipient;
+        Main.currentMessage = text;
+        Main.currentHash = Main.createMessageHash();
+    }
+
+    // ---------- Part 1: assertEquals tests ----------
+
+    @Test
+    public void usernameCorrectMessage() {
+        assertEquals("Username successfully captured.",
+                printedBy(() -> Main.checkUserName("kyl_1")));
+    }
+
+    @Test
+    public void usernameIncorrectMessage() {
+        assertEquals("Username is not correctly formatted; please ensure that your username "
+                + "contains an underscore and is no more than five characters in length.",
+                printedBy(() -> Main.checkUserName("kyle!!!!!!!")));
+    }
+
+    @Test
+    public void passwordCorrectMessage() {
+        assertEquals("Password successfully captured.",
+                printedBy(() -> Main.checkPasswordComplexity("Ch&&sec@ke99!")));
+    }
+
+    @Test
+    public void passwordIncorrectMessage() {
+        assertEquals("Password is not correctly formatted; please ensure that the password "
+                + "contains at least eight characters, a capital letter, a number, "
+                + "and a special character.",
+                printedBy(() -> Main.checkPasswordComplexity("password")));
+    }
+
+    @Test
+    public void cellPhoneCorrectMessage() {
+        assertEquals("Cell phone number successfully added.",
+                printedBy(() -> Main.checkCellPhoneNumber("+27838968976")));
+    }
+
+    @Test
+    public void cellPhoneIncorrectMessage() {
+        assertEquals("Cell phone number incorrectly formatted or does not contain international code.",
+                printedBy(() -> Main.checkCellPhoneNumber("08966553")));
+    }
+
+    @Test
+    public void loginSuccessMessage() {
+        assertEquals("Welcome Kyle, Smith it is great to see you again.",
+                Main.returnLoginStatus(true));
+    }
+
+    @Test
+    public void loginFailMessage() {
+        assertEquals("Username or password incorrect, please try again.",
+                Main.returnLoginStatus(false));
+    }
+
+    // ---------- Part 1: assertTrue / assertFalse tests ----------
+
+    @Test
+    public void loginSuccessful() {
+        assertTrue(Main.loginUser("kyl_1", "Ch&&sec@ke99!"));
+    }
+
+    @Test
+    public void loginFailed() {
+        assertFalse(Main.loginUser("kyl_1", "wrongPass1!"));
+    }
+
+    @Test
+    public void usernameCorrectlyFormatted() {
+        assertTrue(Main.checkUserName("kyl_1"));
+    }
+
+    @Test
+    public void usernameIncorrectlyFormatted() {
+        assertFalse(Main.checkUserName("kyle!!!!!!!"));
+    }
+
+    @Test
+    public void passwordMeetsComplexity() {
+        assertTrue(Main.checkPasswordComplexity("Ch&&sec@ke99!"));
+    }
+
+    @Test
+    public void passwordDoesNotMeetComplexity() {
+        assertFalse(Main.checkPasswordComplexity("password"));
+    }
+
+    @Test
+    public void cellPhoneCorrectlyFormatted() {
+        assertTrue(Main.checkCellPhoneNumber("+27838968976"));
+    }
+
+    @Test
+    public void cellPhoneIncorrectlyFormatted() {
+        assertFalse(Main.checkCellPhoneNumber("08966553"));
+    }
+
+    // ---------- Part 2: assertEquals tests ----------
+
+    @Test
+    public void messageLengthSuccess() {
+        String text = "a".repeat(250);
+        assertEquals("Message ready to send.", Main.checkMessageLength(text));
+    }
+
+    @Test
+    public void messageLengthFailure() {
+        String text = "a".repeat(255);
+        assertEquals("Message exceeds 250 characters by 5; please reduce the size.",
+                Main.checkMessageLength(text));
+    }
+
+    @Test
+    public void recipientCorrectlyFormattedMessage() {
+        setCurrent("1234567890", 0, RECIPIENT_1, TEXT_1);
+        assertEquals("Cell phone number successfully captured.", Main.checkRecipientCell());
+    }
+
+    @Test
+    public void recipientIncorrectlyFormattedMessage() {
+        String expected = "Cell phone number is incorrectly formatted or does not contain "
+                + "an international code. Please correct the number and try again.";
+
+        // The number from Test Message 2 has no international code
+        setCurrent("1234567890", 1, RECIPIENT_2, TEXT_2);
+        assertEquals(expected, Main.checkRecipientCell());
+
+        // The short number from Part 1
+        setCurrent("1234567890", 1, "08966553", TEXT_2);
+        assertEquals(expected, Main.checkRecipientCell());
+    }
+
+    @Test
+    public void messageHashCorrect() {
+        // Test Case 1
+        setCurrent("0012345678", 0, RECIPIENT_1, TEXT_1);
+        assertEquals("00:0:HITONIGHT", Main.createMessageHash());
+
+        // The remaining hashes are tested in a loop
+        String[] ids = {"0012345678", "1234567890", "9876543210"};
+        int[] numbers = {0, 1, 2};
+        String[] messages = {TEXT_1, TEXT_2, "Thanks!"};
+        String[] expected = {"00:0:HITONIGHT", "12:1:HIPAYMENT", "98:2:THANKSTHANKS"};
+
+        for (int i = 0; i < ids.length; i++) {
+            setCurrent(ids[i], numbers[i], RECIPIENT_1, messages[i]);
+            assertEquals(expected[i], Main.createMessageHash());
+        }
+    }
+
+    @Test
+    public void messageIDCreated() {
+        Main.startMessage(RECIPIENT_1, TEXT_1);
+        // The ID should be ten digits long and pass the ID check
+        assertEquals(10, Main.currentMessageID.length());
+        assertTrue(Main.currentMessageID.matches("[0-9]{10}"));
+        assertTrue(Main.checkMessageID());
+    }
+
+    @Test
+    public void messageSentOptions() {
+        setCurrent("1234567890", 0, RECIPIENT_1, TEXT_1);
+        assertEquals("Message successfully sent.", Main.SentMessage(1));
+        assertEquals("Press 0 to delete the message.", Main.SentMessage(2));
+        assertEquals("Message successfully stored.", Main.SentMessage(3));
+    }
+
+    @Test
+    public void totalMessagesSent() {
+        // Test data: message 1 is sent, message 2 is disregarded
+        Main.startMessage(RECIPIENT_1, TEXT_1);
+        Main.SentMessage(1);
+        Main.startMessage(RECIPIENT_2, TEXT_2);
+        Main.SentMessage(2);
+
+        assertEquals(1, Main.returnTotalMessages());
+    }
+
+    @Test
+    public void printMessagesShowsSentMessages() {
+        setCurrent("0012345678", 0, RECIPIENT_1, TEXT_1);
+        Main.SentMessage(1);
+
+        String expected = "Message ID: 0012345678\n"
+                + "Message Hash: 00:0:HITONIGHT\n"
+                + "Recipient: +27718693002\n"
+                + "Message: " + TEXT_1;
+        assertEquals(expected, Main.printMessages());
+    }
+
+    @Test
+    public void storedMessageIsWrittenAsJson() throws IOException {
+        setCurrent("0012345678", 0, RECIPIENT_1, "Say \"hi\"");
+        assertEquals("Message successfully stored.", Main.SentMessage(3));
+
+        String json = new String(Files.readAllBytes(tempFile.toPath()), StandardCharsets.UTF_8);
+        assertTrue(json.contains("\"messageID\": \"0012345678\""));
+        assertTrue(json.contains("\"message\": \"Say \\\"hi\\\"\""));
+        assertEquals(0, Main.returnTotalMessages());
+    }
+
+    // ---------- Part 2: assertTrue / assertFalse tests ----------
+
+    @Test
+    public void messageIDIsValid() {
+        setCurrent("1234567890", 0, RECIPIENT_1, TEXT_1);
+        assertTrue(Main.checkMessageID());
+    }
+
+    @Test
+    public void messageIDIsTooLong() {
+        setCurrent("12345678901", 0, RECIPIENT_1, TEXT_1);
+        assertFalse(Main.checkMessageID());
+    }
+}
