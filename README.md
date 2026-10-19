@@ -1,1 +1,833 @@
 # ST10522363Part2POE
+package com.mycompany.main;
+//Imports Scanner so we can get user input
+import java.util.Scanner;
+//Imports ArrayList so we can store the messages
+import java.util.ArrayList;
+//Imports Random so we can create the message ID
+import java.util.Random;
+//Imports the classes we need to write to a file
+import java.io.FileWriter;
+import java.io.IOException;
+//Create the Main class
+public class Main {
+
+    // Create Scanner for user input
+    static Scanner input = new Scanner(System.in);
+
+    // Create Random to make the message ID
+    static Random random = new Random();
+
+    // stores the user's entered details
+    static String username;
+    static String password;
+    static String cellPhone;
+    static String firstname;
+    static String lastname;
+
+    // Stores the registered username
+    static String registeredUsername;
+
+    // Store the registered password
+    static String registeredPassword;
+
+    // Store the registered cellphone number
+    static String registeredCellPhone;
+
+    // ---------- Part 2 details ----------
+
+    // How many messages the user wants to enter
+    static int messagesAllowed;
+
+    // Details of the message that is being worked on
+    static String currentMessageID;
+    static int currentNumber;
+    static String currentRecipient;
+    static String currentMessage;
+    static String currentHash;
+
+    // Stores every message that was sent
+    // Each message is stored as: {message ID, message hash, recipient, message}
+    static ArrayList<String[]> sentMessages = new ArrayList<String[]>();
+
+    // Stores every message that was stored to send later
+    static ArrayList<String[]> storedMessages = new ArrayList<String[]>();
+
+    // The JSON file that the stored messages are saved in
+    static String storageFile = "storedMessages.json";
+
+
+    // ---------- Part 1 methods ----------
+
+    // Create the username checking method and checks if the username is valid
+    public static boolean checkUserName(String username) {
+        // Username must have no more than 5 characters
+        // and must contain an underscore
+        if(username.length() <= 5 && username.contains("_")) {
+            System.out.println("Username successfully captured.");
+            return true;
+        }else{
+            System.out.println("Username is not correctly formatted; please ensure that your username contains an underscore and is no more than five characters in length.");
+            return false;
+        }
+    }
+
+    // Create the password checking method
+    public static boolean checkPasswordComplexity(String password) {
+        // Password must have at least 8 characters
+        // and contain a capital letter, a number and a special character
+        if(password.length() >= 8
+            && password.matches(".*[A-Z].*")
+            && password.matches(".*[0-9].*")
+            && password.matches(".*[^a-zA-Z0-9].*")) {
+            System.out.println("Password successfully captured.");
+            return true;
+        }else{
+            System.out.println("Password is not correctly formatted; please ensure that the password contains at least eight characters, a capital letter, a number, and a special character.");
+            return false;
+        }
+    }
+
+    // Checks the cellphone number without printing anything
+    // The number must start with + and the international code,
+    // followed by a number of no more than ten digits
+    
+    
+    public static boolean isValidCell(String number) {
+        return number.matches("^\\+\\d{1,3}\\d{1,10}$");
+    }
+
+    // Create the cellphone checking method
+    public static boolean checkCellPhoneNumber(String number) {
+        if(isValidCell(number)) {
+            System.out.println("Cell phone number successfully added.");
+            return true;
+        }else{
+            System.out.println("Cell phone number incorrectly formatted or does not contain international code.");
+            return false;
+        }
+    }
+
+    // Handles the registration process
+    public static String registerUser() {
+        // Ask for the user's names (used in the welcome message)
+        System.out.print("Enter your first name: ");
+        firstname = input.nextLine();
+        System.out.print("Enter your last name: ");
+        lastname = input.nextLine();
+
+        // Loop until the username is correct
+        while (true) {
+            // Ask user for username
+            System.out.print("Enter your username: ");
+            username = input.nextLine();
+
+            // Check username (the method prints the message)
+            boolean usernameCorrect = checkUserName(username);
+
+            // Check if username is correct
+            if (usernameCorrect) {
+                break;
+            }
+        }
+
+        // Loop until the password is correct
+        while (true) {
+            // Ask for password
+            System.out.print("Enter your password: ");
+            password = input.nextLine();
+
+            // Check password (the method prints the message)
+            boolean passwordCorrect = checkPasswordComplexity(password);
+
+            // Check if password is correct
+            if (passwordCorrect) {
+                break;
+            }
+        }
+
+        // Loop until the cellphone number is correct
+        while (true) {
+            // Ask for cellphone number
+            System.out.print("Enter your cellphone number (e.g. +27838968976): ");
+            cellPhone = input.nextLine();
+
+            // Check cellphone number (the method prints the message)
+            boolean phoneCorrect = checkCellPhoneNumber(cellPhone);
+
+            // Check if cellphone number is correct
+            if (phoneCorrect) {
+                break;
+            }
+        }
+
+        // save the valid username
+        registeredUsername = username;
+
+        // save the valid password
+        registeredPassword = password;
+
+        // Save the valid cellphone number
+        registeredCellPhone = cellPhone;
+
+        // Return success message
+        return "User registered successfully.";
+    }
+
+    // Check login details
+    public static boolean loginUser(String username, String password) {
+        // Compare entered details with registered details
+        if (username.equals(registeredUsername)
+                && password.equals(registeredPassword)) {
+            return true;
+        }else{
+            return false;
+        }
+    }
+
+    // Return the login status message
+    public static String returnLoginStatus(boolean loginSuccessful) {
+        // Check if login was successful
+        if (loginSuccessful) {
+            return "Welcome " + firstname + ", " + lastname + " it is great to see you again.";
+        }else{
+            return "Username or password incorrect, please try again.";
+        }
+    }
+
+
+    // ---------- Part 2 methods ----------
+
+    // Creates a random ten digit message ID that has not been used before
+    public static String generateMessageID() {
+        String id = "";
+        boolean idUsed = true;
+
+        // Keep making new IDs until we get one that is not used
+        while (idUsed) {
+            id = "";
+            for (int i = 0; i < 10; i++) {
+                id = id + random.nextInt(10);
+            }
+            idUsed = isIDUsed(id);
+        }
+        return id;
+    }
+
+    // Checks if the message ID was already used by a sent or stored message
+    public static boolean isIDUsed(String id) {
+        for (int i = 0; i < sentMessages.size(); i++) {
+            if (sentMessages.get(i)[0].equals(id)) {
+                return true;
+            }
+        }
+        for (int i = 0; i < storedMessages.size(); i++) {
+            if (storedMessages.get(i)[0].equals(id)) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    // Checks that the message ID is not more than ten characters
+    public static boolean checkMessageID() {
+        if (currentMessageID.length() > 0 && currentMessageID.length() <= 10) {
+            return true;
+        }else{
+            return false;
+        }
+    }
+
+    // Checks that the recipient number has an international code
+    // and is no more than ten digits long (reuses the cellphone check from Part 1)
+    public static String checkRecipientCell() {
+        if (isValidCell(currentRecipient)) {
+            return "Cell phone number successfully captured.";
+        }else{
+            return "Cell phone number is incorrectly formatted or does not contain an international code. Please correct the number and try again.";
+        }
+    }
+
+    // Checks that the message is not more than 250 characters
+    public static String checkMessageLength(String text) {
+        if (text.length() <= 250) {
+            return "Message ready to send.";
+        }else{
+            int tooMany = text.length() - 250;
+            return "Message exceeds 250 characters by " + tooMany + "; please reduce the size.";
+        }
+    }
+
+    // Creates the message hash, for example 00:0:HITHANKS
+    // First two numbers of the ID, a colon, the message number,
+    // a colon, then the first and last word of the message in capitals
+    public static String createMessageHash() {
+        String text = currentMessage.trim();
+        String firstWord = "";
+        String lastWord = "";
+
+        // Only get the words if the message is not empty
+        if (text.length() > 0) {
+            String[] words = text.split("\\s+");
+            // Remove punctuation, for example "tonight?" becomes "tonight"
+            firstWord = words[0].replaceAll("[^A-Za-z0-9]", "");
+            lastWord = words[words.length - 1].replaceAll("[^A-Za-z0-9]", "");
+        }
+
+        // Get the first two numbers of the message ID
+        String firstTwo = currentMessageID;
+        if (currentMessageID.length() >= 2) {
+            firstTwo = currentMessageID.substring(0, 2);
+        }
+
+        String hash = firstTwo + ":" + currentNumber + ":" + firstWord + lastWord;
+        return hash.toUpperCase();
+    }
+
+    // Sets up a new message with its ID, number and hash
+    public static void startMessage(String recipient, String text) {
+        currentMessageID = generateMessageID();
+        // The first message is number 0
+        currentNumber = sentMessages.size();
+        currentRecipient = recipient;
+        currentMessage = text;
+        currentHash = createMessageHash();
+    }
+
+    // Lets the user send, disregard or store the message
+    // 1 = send, 2 = disregard, 3 = store to send later
+    public static String SentMessage(int choice) {
+        if (choice == 1) {
+            // Save the message in the sent messages
+            String[] details = {currentMessageID, currentHash, currentRecipient, currentMessage};
+            sentMessages.add(details);
+            return "Message successfully sent.";
+        }else if (choice == 2) {
+            return "Press 0 to delete the message.";
+        }else if (choice == 3) {
+            storeMessage();
+            return "Message successfully stored.";
+        }else{
+            return "Invalid option.";
+        }
+    }
+
+    // Stores the messages in a JSON file
+    // JSON syntax and string escaping follow the JSON specification:
+    // Ecma International (2017) ECMA-404 The JSON data interchange syntax.
+    // https://www.json.org/json-en.html
+    public static void storeMessage() {
+        // Add the current message to the stored messages
+        String[] details = {currentMessageID, currentHash, currentRecipient, currentMessage};
+        storedMessages.add(details);
+
+        // Build the JSON text
+        String json = "[\n";
+        for (int i = 0; i < storedMessages.size(); i++) {
+            String[] m = storedMessages.get(i);
+            json = json + "  {\n";
+            json = json + "    \"messageID\": \"" + escapeJson(m[0]) + "\",\n";
+            json = json + "    \"messageHash\": \"" + escapeJson(m[1]) + "\",\n";
+            json = json + "    \"recipient\": \"" + escapeJson(m[2]) + "\",\n";
+            json = json + "    \"message\": \"" + escapeJson(m[3]) + "\"\n";
+            json = json + "  }";
+            // No comma after the last message
+            if (i < storedMessages.size() - 1) {
+                json = json + ",";
+            }
+            json = json + "\n";
+        }
+        json = json + "]\n";
+
+        // Write the JSON text to the file
+        try {
+            FileWriter writer = new FileWriter(storageFile);
+            writer.write(json);
+            writer.close();
+        }catch (IOException e) {
+            System.out.println("The message could not be saved to the file.");
+        }
+    }
+
+    // Makes text safe to put inside JSON quotes
+    public static String escapeJson(String text) {
+        text = text.replace("\\", "\\\\");
+        text = text.replace("\"", "\\\"");
+        text = text.replace("\n", "\\n");
+        text = text.replace("\r", "\\r");
+        text = text.replace("\t", "\\t");
+        return text;
+    }
+
+    // Returns all the messages that were sent while the program is running
+    public static String printMessages() {
+        if (sentMessages.size() == 0) {
+            return "No messages have been sent.";
+        }
+
+        String all = "";
+        for (int i = 0; i < sentMessages.size(); i++) {
+            String[] m = sentMessages.get(i);
+            // Blank line between messages
+            if (i > 0) {
+                all = all + "\n\n";
+            }
+            all = all + "Message ID: " + m[0] + "\n"
+                    + "Message Hash: " + m[1] + "\n"
+                    + "Recipient: " + m[2] + "\n"
+                    + "Message: " + m[3];
+        }
+        return all;
+    }
+
+    // Returns the total number of messages sent
+    public static int returnTotalMessages() {
+        return sentMessages.size();
+    }
+
+    // Clears the sent and stored messages (used to start each unit test fresh)
+    public static void resetMessages() {
+        sentMessages.clear();
+        storedMessages.clear();
+    }
+
+    // Asks how many messages the user wants to enter
+    public static int askNumberOfMessages() {
+        while (true) {
+            System.out.print("How many messages do you wish to enter? ");
+            String answer = input.nextLine().trim();
+
+            // Check that the answer is a whole number above 0
+            if (answer.matches("[0-9]+") && Integer.parseInt(answer) > 0) {
+                return Integer.parseInt(answer);
+            }else{
+                System.out.println("Please enter a whole number greater than 0.");
+            }
+        }
+    }
+
+    // Collects one message and lets the user send, disregard or store it
+    public static void composeMessage() {
+        // Loop until the recipient number is correct
+        String recipient;
+        while (true) {
+            System.out.print("Enter the recipient's cell number (with international code, e.g. +27718693002): ");
+            recipient = input.nextLine().trim();
+
+            // Check the recipient number
+            currentRecipient = recipient;
+            String result = checkRecipientCell();
+            System.out.println(result);
+
+            if (isValidCell(recipient)) {
+                break;
+            }
+        }
+
+        // Loop until the message is not too long
+        String text;
+        while (true) {
+            System.out.print("Enter your message: ");
+            text = input.nextLine();
+
+            if (text.trim().length() == 0) {
+                System.out.println("The message cannot be empty.");
+            }else if (text.length() > 250) {
+                System.out.println("Please enter a message of less than 250 characters.");
+            }else{
+                System.out.println(checkMessageLength(text));
+                break;
+            }
+        }
+
+        // Create the message ID, number and hash
+        startMessage(recipient, text);
+        System.out.println("Message ID generated: " + currentMessageID);
+
+        // Loop until the user sends, stores or deletes the message
+        while (true) {
+            System.out.println("1) Send Message");
+            System.out.println("2) Disregard Message");
+            System.out.println("3) Store Message to send later");
+            System.out.print("Choose an option: ");
+            String answer = input.nextLine().trim();
+
+            // Only accept 1, 2 or 3
+            if (!answer.equals("1") && !answer.equals("2") && !answer.equals("3")) {
+                System.out.println("Please enter 1, 2 or 3.");
+                continue;
+            }
+
+            int choice = Integer.parseInt(answer);
+            System.out.println(SentMessage(choice));
+
+            if (choice == 1) {
+                // Show the full details of the message that was sent
+                System.out.println();
+                System.out.println("Message ID: " + currentMessageID);
+                System.out.println("Message Hash: " + currentHash);
+                System.out.println("Recipient: " + currentRecipient);
+                System.out.println("Message: " + currentMessage);
+                return;
+            }else if (choice == 3) {
+                return;
+            }else{
+                // The message is only deleted when the user presses 0
+                String confirm = input.nextLine().trim();
+                if (confirm.equals("0")) {
+                    System.out.println("Message deleted.");
+                    return;
+                }
+            }
+        }
+    }
+
+    // Runs QuickChat after the user has logged in
+    public static void quickChat() {
+        System.out.println("Welcome to QuickChat.");
+
+        // Ask how many messages the user wants to enter
+        messagesAllowed = askNumberOfMessages();
+        int messagesRemaining = messagesAllowed;
+
+        // Loop until the user quits
+        boolean running = true;
+        while (running) {
+            System.out.println();
+            System.out.println("1) Send Messages");
+            System.out.println("2) Show recently sent messages");
+            System.out.println("3) Quit");
+            System.out.print("Choose an option: ");
+            String choice = input.nextLine().trim();
+
+            if (choice.equals("1")) {
+                if (messagesRemaining <= 0) {
+                    System.out.println("You have already entered the " + messagesAllowed + " message(s) you chose at the start.");
+                }else{
+                    composeMessage();
+                    messagesRemaining = messagesRemaining - 1;
+
+                    // Show the total once all the messages have been entered
+                    if (messagesRemaining == 0) {
+                        System.out.println();
+                        System.out.println("Total messages sent: " + returnTotalMessages());
+                    }
+                }
+            }else if (choice.equals("2")) {
+                System.out.println("Coming Soon.");
+            }else if (choice.equals("3")) {
+                System.out.println("Total messages sent: " + returnTotalMessages());
+                System.out.println("Goodbye.");
+                running = false;
+            }else{
+                System.out.println("Please enter 1, 2 or 3.");
+            }
+        }
+    }
+
+    // Main method where the program starts
+    public static void main(String[] args){
+        // Calls the registration method
+        System.out.println(registerUser());
+
+        // Ask user to login, and keep asking until the details are correct
+        boolean loginSuccessful = false;
+        while (!loginSuccessful) {
+            System.out.print("Enter your username to login: ");
+            String loginUsername = input.nextLine();
+            System.out.print("Enter your password to login: ");
+            String loginPassword = input.nextLine();
+
+            // Call login method
+            loginSuccessful = loginUser(loginUsername, loginPassword);
+
+            // Calls login status method
+            System.out.println(returnLoginStatus(loginSuccessful));
+        }
+
+        // The user has logged in, so they can use QuickChat
+        quickChat();
+    }
+}
+package com.mycompany.main;
+
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertTrue;
+
+import java.io.ByteArrayOutputStream;
+import java.io.File;
+import java.io.IOException;
+import java.io.PrintStream;
+import java.nio.charset.StandardCharsets;
+import java.nio.file.Files;
+
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
+
+public class MainTest {
+
+    // Test data from the brief
+    static final String RECIPIENT_1 = "+27718693002";
+    static final String TEXT_1 = "Hi Mike, can you join us for dinner tonight?";
+    static final String RECIPIENT_2 = "08575975889";
+    static final String TEXT_2 = "Hi Keegan, did you receive the payment?";
+
+    File tempFile;
+
+    // Runs before every test so that each test starts fresh
+    @BeforeEach
+    public void setUp() throws IOException {
+        Main.resetMessages();
+        tempFile = File.createTempFile("quickchat", ".json");
+        tempFile.deleteOnExit();
+        Main.storageFile = tempFile.getAbsolutePath();
+
+        // Details of the registered user
+        Main.firstname = "Kyle";
+        Main.lastname = "Smith";
+        Main.registeredUsername = "kyl_1";
+        Main.registeredPassword = "Ch&&sec@ke99!";
+    }
+
+    // Gets the text that a method prints on the screen
+    // (the Part 1 check methods print their messages)
+    String printedBy(Runnable action) {
+        PrintStream original = System.out;
+        ByteArrayOutputStream out = new ByteArrayOutputStream();
+        System.setOut(new PrintStream(out));
+        try {
+            action.run();
+        } finally {
+            System.setOut(original);
+        }
+        return out.toString().trim();
+    }
+
+    // Sets up the current message (used by the Part 2 tests)
+    void setCurrent(String id, int number, String recipient, String text) {
+        Main.currentMessageID = id;
+        Main.currentNumber = number;
+        Main.currentRecipient = recipient;
+        Main.currentMessage = text;
+        Main.currentHash = Main.createMessageHash();
+    }
+
+    // ---------- Part 1: assertEquals tests ----------
+
+    @Test
+    public void usernameCorrectMessage() {
+        assertEquals("Username successfully captured.",
+                printedBy(() -> Main.checkUserName("kyl_1")));
+    }
+
+    @Test
+    public void usernameIncorrectMessage() {
+        assertEquals("Username is not correctly formatted; please ensure that your username "
+                + "contains an underscore and is no more than five characters in length.",
+                printedBy(() -> Main.checkUserName("kyle!!!!!!!")));
+    }
+
+    @Test
+    public void passwordCorrectMessage() {
+        assertEquals("Password successfully captured.",
+                printedBy(() -> Main.checkPasswordComplexity("Ch&&sec@ke99!")));
+    }
+
+    @Test
+    public void passwordIncorrectMessage() {
+        assertEquals("Password is not correctly formatted; please ensure that the password "
+                + "contains at least eight characters, a capital letter, a number, "
+                + "and a special character.",
+                printedBy(() -> Main.checkPasswordComplexity("password")));
+    }
+
+    @Test
+    public void cellPhoneCorrectMessage() {
+        assertEquals("Cell phone number successfully added.",
+                printedBy(() -> Main.checkCellPhoneNumber("+27838968976")));
+    }
+
+    @Test
+    public void cellPhoneIncorrectMessage() {
+        assertEquals("Cell phone number incorrectly formatted or does not contain international code.",
+                printedBy(() -> Main.checkCellPhoneNumber("08966553")));
+    }
+
+    @Test
+    public void loginSuccessMessage() {
+        assertEquals("Welcome Kyle, Smith it is great to see you again.",
+                Main.returnLoginStatus(true));
+    }
+
+    @Test
+    public void loginFailMessage() {
+        assertEquals("Username or password incorrect, please try again.",
+                Main.returnLoginStatus(false));
+    }
+
+    // ---------- Part 1: assertTrue / assertFalse tests ----------
+
+    @Test
+    public void loginSuccessful() {
+        assertTrue(Main.loginUser("kyl_1", "Ch&&sec@ke99!"));
+    }
+
+    @Test
+    public void loginFailed() {
+        assertFalse(Main.loginUser("kyl_1", "wrongPass1!"));
+    }
+
+    @Test
+    public void usernameCorrectlyFormatted() {
+        assertTrue(Main.checkUserName("kyl_1"));
+    }
+
+    @Test
+    public void usernameIncorrectlyFormatted() {
+        assertFalse(Main.checkUserName("kyle!!!!!!!"));
+    }
+
+    @Test
+    public void passwordMeetsComplexity() {
+        assertTrue(Main.checkPasswordComplexity("Ch&&sec@ke99!"));
+    }
+
+    @Test
+    public void passwordDoesNotMeetComplexity() {
+        assertFalse(Main.checkPasswordComplexity("password"));
+    }
+
+    @Test
+    public void cellPhoneCorrectlyFormatted() {
+        assertTrue(Main.checkCellPhoneNumber("+27838968976"));
+    }
+
+    @Test
+    public void cellPhoneIncorrectlyFormatted() {
+        assertFalse(Main.checkCellPhoneNumber("08966553"));
+    }
+
+    // ---------- Part 2: assertEquals tests ----------
+
+    @Test
+    public void messageLengthSuccess() {
+        String text = "a".repeat(250);
+        assertEquals("Message ready to send.", Main.checkMessageLength(text));
+    }
+
+    @Test
+    public void messageLengthFailure() {
+        String text = "a".repeat(255);
+        assertEquals("Message exceeds 250 characters by 5; please reduce the size.",
+                Main.checkMessageLength(text));
+    }
+
+    @Test
+    public void recipientCorrectlyFormattedMessage() {
+        setCurrent("1234567890", 0, RECIPIENT_1, TEXT_1);
+        assertEquals("Cell phone number successfully captured.", Main.checkRecipientCell());
+    }
+
+    @Test
+    public void recipientIncorrectlyFormattedMessage() {
+        String expected = "Cell phone number is incorrectly formatted or does not contain "
+                + "an international code. Please correct the number and try again.";
+
+        // The number from Test Message 2 has no international code
+        setCurrent("1234567890", 1, RECIPIENT_2, TEXT_2);
+        assertEquals(expected, Main.checkRecipientCell());
+
+        // The short number from Part 1
+        setCurrent("1234567890", 1, "08966553", TEXT_2);
+        assertEquals(expected, Main.checkRecipientCell());
+    }
+
+    @Test
+    public void messageHashCorrect() {
+        // Test Case 1
+        setCurrent("0012345678", 0, RECIPIENT_1, TEXT_1);
+        assertEquals("00:0:HITONIGHT", Main.createMessageHash());
+
+        // The remaining hashes are tested in a loop
+        String[] ids = {"0012345678", "1234567890", "9876543210"};
+        int[] numbers = {0, 1, 2};
+        String[] messages = {TEXT_1, TEXT_2, "Thanks!"};
+        String[] expected = {"00:0:HITONIGHT", "12:1:HIPAYMENT", "98:2:THANKSTHANKS"};
+
+        for (int i = 0; i < ids.length; i++) {
+            setCurrent(ids[i], numbers[i], RECIPIENT_1, messages[i]);
+            assertEquals(expected[i], Main.createMessageHash());
+        }
+    }
+
+    @Test
+    public void messageIDCreated() {
+        Main.startMessage(RECIPIENT_1, TEXT_1);
+        // The ID should be ten digits long and pass the ID check
+        assertEquals(10, Main.currentMessageID.length());
+        assertTrue(Main.currentMessageID.matches("[0-9]{10}"));
+        assertTrue(Main.checkMessageID());
+    }
+
+    @Test
+    public void messageSentOptions() {
+        setCurrent("1234567890", 0, RECIPIENT_1, TEXT_1);
+        assertEquals("Message successfully sent.", Main.SentMessage(1));
+        assertEquals("Press 0 to delete the message.", Main.SentMessage(2));
+        assertEquals("Message successfully stored.", Main.SentMessage(3));
+    }
+
+    @Test
+    public void totalMessagesSent() {
+        // Test data: message 1 is sent, message 2 is disregarded
+        Main.startMessage(RECIPIENT_1, TEXT_1);
+        Main.SentMessage(1);
+        Main.startMessage(RECIPIENT_2, TEXT_2);
+        Main.SentMessage(2);
+
+        assertEquals(1, Main.returnTotalMessages());
+    }
+
+    @Test
+    public void printMessagesShowsSentMessages() {
+        setCurrent("0012345678", 0, RECIPIENT_1, TEXT_1);
+        Main.SentMessage(1);
+
+        String expected = "Message ID: 0012345678\n"
+                + "Message Hash: 00:0:HITONIGHT\n"
+                + "Recipient: +27718693002\n"
+                + "Message: " + TEXT_1;
+        assertEquals(expected, Main.printMessages());
+    }
+
+    @Test
+    public void storedMessageIsWrittenAsJson() throws IOException {
+        setCurrent("0012345678", 0, RECIPIENT_1, "Say \"hi\"");
+        assertEquals("Message successfully stored.", Main.SentMessage(3));
+
+        String json = new String(Files.readAllBytes(tempFile.toPath()), StandardCharsets.UTF_8);
+        assertTrue(json.contains("\"messageID\": \"0012345678\""));
+        assertTrue(json.contains("\"message\": \"Say \\\"hi\\\"\""));
+        assertEquals(0, Main.returnTotalMessages());
+    }
+
+    // ---------- Part 2: assertTrue / assertFalse tests ----------
+
+    @Test
+    public void messageIDIsValid() {
+        setCurrent("1234567890", 0, RECIPIENT_1, TEXT_1);
+        assertTrue(Main.checkMessageID());
+    }
+
+    @Test
+    public void messageIDIsTooLong() {
+        setCurrent("12345678901", 0, RECIPIENT_1, TEXT_1);
+        assertFalse(Main.checkMessageID());
+    }
+}
+
+
+
+
+
